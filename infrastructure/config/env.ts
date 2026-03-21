@@ -1,42 +1,22 @@
-const requiredEnvVars = [
-  "NEXT_PUBLIC_API_BASE_URL",
-  "NEXT_PUBLIC_GOOGLE_LOGIN_PATH",
-  "NEXT_PUBLIC_KAKAO_LOGIN_PATH",
-] as const;
-
-type EnvVarName = (typeof requiredEnvVars)[number];
-
-function getEnvVar(name: EnvVarName): string {
-  const value = process.env[name];
-
+function requireEnv(name: string, value: string | undefined): string {
   if (!value) {
     throw new Error(`필수 환경 변수가 누락되었습니다: ${name}`);
   }
-
   return value;
 }
 
 function validateEnv(): void {
-  const missing = requiredEnvVars.filter((name) => !process.env[name]);
-
-  if (missing.length > 0) {
-    throw new Error(
-      `필수 환경 변수가 누락되었습니다:\n${missing.map((name) => `  - ${name}`).join("\n")}`
-    );
-  }
+  requireEnv("NEXT_PUBLIC_API_BASE_URL", process.env.NEXT_PUBLIC_API_BASE_URL);
+  requireEnv("NEXT_PUBLIC_KAKAO_LOGIN_PATH", process.env.NEXT_PUBLIC_KAKAO_LOGIN_PATH);
 }
 
 export const env = {
   get apiBaseUrl(): string {
-    return getEnvVar("NEXT_PUBLIC_API_BASE_URL");
-  },
-
-  get googleLoginPath(): string {
-    return getEnvVar("NEXT_PUBLIC_GOOGLE_LOGIN_PATH");
+    return requireEnv("NEXT_PUBLIC_API_BASE_URL", process.env.NEXT_PUBLIC_API_BASE_URL);
   },
 
   get kakaoLoginPath(): string {
-    return getEnvVar("NEXT_PUBLIC_KAKAO_LOGIN_PATH");
+    return requireEnv("NEXT_PUBLIC_KAKAO_LOGIN_PATH", process.env.NEXT_PUBLIC_KAKAO_LOGIN_PATH);
   },
 
   validate: validateEnv,
