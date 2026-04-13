@@ -15,7 +15,7 @@ export default async function BoardReadPage({ params }: BoardReadPageProps) {
             게시물 상세
           </h1>
           <span className="rounded-full bg-blue-900 px-3 py-1 text-xs font-semibold text-blue-100 dark:bg-blue-800">
-            Stock Supporters
+            Antelligen
           </span>
         </div>
         <BoardPostDetail postId={Number(id)} />

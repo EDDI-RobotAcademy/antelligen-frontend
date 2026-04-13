@@ -24,6 +24,7 @@ export interface SavedArticleItem {
   source?: string;
   published_at?: string;
   snippet?: string;
+  content?: string;
   saved_at: string;
 }
 
@@ -60,6 +61,41 @@ export async function saveArticle(req: SaveArticleRequest): Promise<BookmarkArti
   return data;
 }
 
+export interface SaveInterestArticleRequest {
+  title: string;
+  link: string;
+  source?: string;
+  published_at?: string;
+}
+
+export interface SaveInterestArticleResponse {
+  id: number;
+  title: string;
+  source?: string;
+  link: string;
+  published_at?: string;
+  content: string;
+}
+
+/** 저장된 관심 기사 단건 조회 (GET /api/v1/news/interest-articles/{id}) */
+export async function getInterestArticle(id: number): Promise<SaveInterestArticleResponse> {
+  const { data } = await httpClient<ApiResponse<SaveInterestArticleResponse>>(
+    `/api/v1/news/interest-articles/${id}`
+  );
+  return data;
+}
+
+/** 인증된 사용자가 관심 기사를 저장하고 원문 포함 전체 데이터를 반환 (POST /api/v1/news/interest-articles) */
+export async function saveInterestArticle(
+  req: SaveInterestArticleRequest
+): Promise<SaveInterestArticleResponse> {
+  const { data } = await httpClient<ApiResponse<SaveInterestArticleResponse>>(
+    "/api/v1/news/interest-articles",
+    { method: "POST", body: JSON.stringify(req) }
+  );
+  return data;
+}
+
 export interface NewsSearchResult {
   articles: NewsArticle[];
   page: number;
@@ -72,14 +108,16 @@ export async function searchNews(keyword: string, page: number, pageSize: number
     `/api/v1/news/search?keyword=${encodeURIComponent(keyword)}&page=${page}&page_size=${pageSize}`
   );
 
-  const articles: NewsArticle[] = (data.articles ?? []).map((item, index) => ({
-    newsId: index,
-    title: item.title,
-    content: item.snippet,
-    source: item.source,
-    url: item.link ?? "",
-    publishedAt: item.published_at,
-  }));
+  const articles: NewsArticle[] = (data.articles ?? [])
+    .filter((item) => item.title)
+    .map((item, index) => ({
+      newsId: String(index),
+      title: item.title,
+      content: item.snippet,
+      source: item.source,
+      url: item.link ?? "",
+      publishedAt: item.published_at,
+    }));
 
   const totalPages = Math.max(1, Math.ceil(data.total_count / pageSize));
 

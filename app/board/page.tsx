@@ -10,7 +10,7 @@ export default function BoardPage() {
         <div className={s.header.wrap}>
           <h1 className={s.header.title}>게시판</h1>
           <div className={s.header.right}>
-            <span className={s.header.badge}>Stock Supporters</span>
+            <span className={s.header.badge}>Antelligen</span>
             <Link href="/board/create" className={s.header.createButton}>
               <span aria-hidden="true">+</span>
               <span>게시물 작성</span>

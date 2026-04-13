@@ -1,38 +1,115 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useNewsList } from "@/features/news/application/hooks/useNewsList";
 import { newsListStyles as s } from "@/features/news/ui/components/newsListStyles";
-import { saveArticle } from "@/features/news/infrastructure/api/newsApi";
+import { newsCommand } from "@/features/news/application/commands/newsCommand";
+import { savedInterestArticleAtom } from "@/features/news/application/atoms/savedInterestArticleAtom";
+import { authAtom } from "@/features/auth/application/atoms/authAtom";
+import { HttpError } from "@/infrastructure/http/httpClient";
+import { getSavedArticles } from "@/features/news/infrastructure/api/newsApi";
 import type { NewsArticle } from "@/features/news/domain/model/newsArticle";
+import type { SavedInterestArticle } from "@/features/news/domain/model/savedInterestArticle";
 
-function SaveButton({ article }: { article: NewsArticle }) {
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "duplicate">("idle");
+function SaveButton({
+  article,
+  initialSavedId,
+}: {
+  article: NewsArticle;
+  initialSavedId?: number;
+}) {
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "duplicate">(
+    initialSavedId !== undefined ? "saved" : "idle"
+  );
+  const [savedId, setSavedId] = useState<number | null>(initialSavedId ?? null);
+  const setSavedArticle = useSetAtom(savedInterestArticleAtom);
+  const authState = useAtomValue(authAtom);
+  const router = useRouter();
 
   if (!article.url) return null;
 
   async function handleSave() {
+    if (authState.status !== "AUTHENTICATED") {
+      setSavedArticle({ status: "UNAUTHENTICATED" });
+      router.push("/login");
+      return;
+    }
+
     setStatus("saving");
+    setSavedArticle({ status: "SAVING" });
+
     try {
-      await saveArticle({
+      const result = await newsCommand.SAVE_INTEREST_ARTICLE({
+        type: "SAVE_INTEREST_ARTICLE",
         title: article.title,
         link: article.url,
         source: article.source,
-        published_at: article.publishedAt,
-        snippet: article.content,
+        publishedAt: article.publishedAt,
       });
+
+      const saved: SavedInterestArticle = {
+        id: result.id,
+        title: result.title,
+        source: result.source,
+        link: result.link,
+        publishedAt: result.published_at,
+        content: result.content,
+      };
+      setSavedArticle({ status: "SUCCESS", article: saved });
       setStatus("saved");
+      setSavedId(result.id);
+      router.push(`/news/article/${result.id}`);
     } catch (e: unknown) {
-      if (e instanceof Error && e.message.includes("409")) {
-        setStatus("duplicate");
+      if (e instanceof HttpError && e.status === 409) {
+        try {
+          const result = await getSavedArticles(1, 100);
+          const match = result.articles.find((a) => a.link === article.url);
+          if (match) {
+            const saved: SavedInterestArticle = {
+              id: match.article_id,
+              title: match.title,
+              source: match.source,
+              link: match.link,
+              publishedAt: match.published_at,
+              content: match.snippet ?? "",
+            };
+            setSavedArticle({ status: "SUCCESS", article: saved });
+            setStatus("saved");
+            setSavedId(match.article_id);
+            router.push(`/news/article/${match.article_id}`);
+          } else {
+            setStatus("duplicate");
+            setSavedArticle({ status: "DUPLICATE" });
+          }
+        } catch {
+          setStatus("duplicate");
+          setSavedArticle({ status: "DUPLICATE" });
+        }
+      } else if (e instanceof HttpError && e.status === 401) {
+        setSavedArticle({ status: "UNAUTHENTICATED" });
+        router.push("/login");
       } else {
         setStatus("idle");
+        setSavedArticle({ status: "ERROR", message: e instanceof Error ? e.message : "저장 실패" });
       }
     }
   }
 
-  if (status === "saved") return <span className={s.item.savedBadge}>저장됨</span>;
-  if (status === "duplicate") return <span className={s.item.savedBadge}>이미 저장된 기사</span>;
+  if (status === "saved" && savedId !== null) {
+    return (
+      <button
+        className={s.item.savedBadge}
+        onClick={() => router.push(`/news/article/${savedId}`)}
+      >
+        저장됨 · 보기
+      </button>
+    );
+  }
+  if (status === "duplicate") {
+    return <span className={s.item.savedBadge}>이미 저장된 기사</span>;
+  }
 
   return (
     <button
@@ -47,6 +124,19 @@ function SaveButton({ article }: { article: NewsArticle }) {
 
 export default function NewsList() {
   const { newsState, page, goToPage } = useNewsList();
+  const authState = useAtomValue(authAtom);
+  const [savedMap, setSavedMap] = useState<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    if (authState.status !== "AUTHENTICATED") return;
+    getSavedArticles(1, 100)
+      .then((result) => {
+        const map = new Map<string, number>();
+        result.articles.forEach((a) => map.set(a.link, a.article_id));
+        setSavedMap(map);
+      })
+      .catch(() => {/* 조용히 실패 */});
+  }, [authState.status]);
 
   if (newsState.status === "LOADING") {
     return (
@@ -96,13 +186,18 @@ export default function NewsList() {
               >
                 {article.title}
               </a>
-              <SaveButton article={article} />
+              <SaveButton
+                article={article}
+                initialSavedId={savedMap.get(article.url)}
+              />
             </div>
             <div className={s.item.meta}>
               <span className={s.item.source}>{article.source}</span>
-              <span>{new Date(article.publishedAt).toLocaleDateString("ko-KR")}</span>
+              {!isNaN(new Date(article.publishedAt).getTime()) && (
+                <span>{new Date(article.publishedAt).toLocaleDateString("ko-KR")}</span>
+              )}
             </div>
-            <p className={s.item.content}>{article.content}</p>
+            {article.content && <p className={s.item.content}>{article.content}</p>}
           </li>
         ))}
       </ul>

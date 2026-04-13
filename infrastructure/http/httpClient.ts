@@ -1,5 +1,16 @@
 import { env } from "@/infrastructure/config/env";
 
+export class HttpError extends Error {
+  constructor(
+    public readonly status: number,
+    statusText: string,
+    public readonly body: unknown = null
+  ) {
+    super(`HTTP ${status}: ${statusText}`);
+    this.name = "HttpError";
+  }
+}
+
 function getAuthHeaders(): Record<string, string> {
   if (typeof window === "undefined") return {};
   const token = localStorage.getItem("user_token");
@@ -31,7 +42,9 @@ export async function httpClient<T>(
         window.location.replace("/login");
       }
     }
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    let body: unknown = null;
+    try { body = await response.json(); } catch { /* ignore */ }
+    throw new HttpError(response.status, response.statusText, body);
   }
 
   return response.json() as Promise<T>;

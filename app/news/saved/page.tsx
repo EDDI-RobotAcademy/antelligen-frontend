@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useRouter } from "next/navigation";
 import { authAtom } from "@/features/auth/application/atoms/authAtom";
 import { getSavedArticles, deleteBookmark, type SavedArticleItem } from "@/features/news/infrastructure/api/newsApi";
+import { savedInterestArticleAtom } from "@/features/news/application/atoms/savedInterestArticleAtom";
 import { newsListStyles as s } from "@/features/news/ui/components/newsListStyles";
 
 const PAGE_SIZE = 10;
@@ -14,7 +15,23 @@ const deleteButtonStyle =
 
 export default function SavedNewsPage() {
   const authState = useAtomValue(authAtom);
+  const setSavedArticle = useSetAtom(savedInterestArticleAtom);
   const router = useRouter();
+
+  function handleView(article: SavedArticleItem) {
+    setSavedArticle({
+      status: "SUCCESS",
+      article: {
+        id: article.article_id,
+        title: article.title,
+        source: article.source,
+        link: article.link,
+        publishedAt: article.published_at,
+        content: article.content ?? article.snippet ?? "",
+      },
+    });
+    router.push(`/news/article/${article.article_id}`);
+  }
   const [articles, setArticles] = useState<SavedArticleItem[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -70,29 +87,30 @@ export default function SavedNewsPage() {
                 {articles.map((article) => (
                   <li key={article.article_id} className={s.item.wrap}>
                     <div className="flex items-start justify-between gap-4">
-                      <a
-                        href={article.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={s.item.title}
-                      >
-                        {article.title}
-                      </a>
-                      <button
-                        className={deleteButtonStyle}
-                        onClick={() => handleDelete(article.article_id)}
-                        disabled={deletingIds.has(article.article_id)}
-                      >
-                        {deletingIds.has(article.article_id) ? "삭제 중..." : "삭제"}
-                      </button>
+                      <span className={s.item.title}>{article.title}</span>
+                      <div className="flex shrink-0 gap-2">
+                        <button
+                          className={s.item.saveButton}
+                          onClick={() => handleView(article)}
+                        >
+                          보기
+                        </button>
+                        <button
+                          className={deleteButtonStyle}
+                          onClick={() => handleDelete(article.article_id)}
+                          disabled={deletingIds.has(article.article_id)}
+                        >
+                          {deletingIds.has(article.article_id) ? "삭제 중..." : "삭제"}
+                        </button>
+                      </div>
                     </div>
                     <div className={s.item.meta}>
                       {article.source && <span className={s.item.source}>{article.source}</span>}
-                      {article.published_at && (
+                      {article.published_at && !isNaN(new Date(article.published_at).getTime()) && (
                         <span>{new Date(article.published_at).toLocaleDateString("ko-KR")}</span>
                       )}
                       <span className="text-zinc-400">
-                        저장: {new Date(article.saved_at).toLocaleDateString("ko-KR")}
+                        저장: {!isNaN(new Date(article.saved_at).getTime()) ? new Date(article.saved_at).toLocaleDateString("ko-KR") : "-"}
                       </span>
                     </div>
                     {article.snippet && <p className={s.item.content}>{article.snippet}</p>}
