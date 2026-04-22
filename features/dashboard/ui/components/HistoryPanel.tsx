@@ -215,7 +215,7 @@ export default function HistoryPanel() {
               <p className="text-sm text-zinc-400">선택한 카테고리에 이벤트가 없습니다.</p>
             </div>
           ) : (
-            <div ref={scrollRef} className="max-h-96 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:theme(colors.zinc.300)_transparent] dark:[scrollbar-color:theme(colors.zinc.700)_transparent]">
+            <div ref={scrollRef} className="max-h-[25rem] overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:theme(colors.zinc.300)_transparent] dark:[scrollbar-color:theme(colors.zinc.700)_transparent]">
               {visibleEvents.map((event) => {
                 const idx = lazyEvents.indexOf(event);
                 return (

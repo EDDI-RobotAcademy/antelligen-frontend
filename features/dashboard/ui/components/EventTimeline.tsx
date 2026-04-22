@@ -120,7 +120,7 @@ export default function EventTimeline() {
       <h3 className="mb-4 text-sm font-semibold text-zinc-700 dark:text-zinc-300">주요 경제 지표</h3>
       <div
         ref={scrollRef}
-        className="max-h-96 overflow-y-auto space-y-3 pr-1 [scrollbar-width:thin] [scrollbar-color:theme(colors.zinc.300)_transparent] dark:[scrollbar-color:theme(colors.zinc.700)_transparent]"
+        className="max-h-[42.25rem] overflow-y-auto space-y-3 pr-1 [scrollbar-width:thin] [scrollbar-color:theme(colors.zinc.300)_transparent] dark:[scrollbar-color:theme(colors.zinc.700)_transparent]"
       >
         {dateGroups.map(([date, events]) =>
           events.length === 1 ? (
