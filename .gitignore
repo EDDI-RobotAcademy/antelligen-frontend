@@ -43,3 +43,11 @@ next-env.d.ts
 # oh-my-claudecode
 .omc/
 .claude/settings.local.json
+
+# iCloud Drive sync duplicates — "filename 2.ext" pattern when conflicts occur.
+# 파일명 뒤에 공백 + 숫자가 붙는 iCloud 충돌 복사본은 빌드/타입체크 노이즈를
+# 유발하므로 추적 대상에서 제외. 일반 파일명이 이 패턴과 겹치는 경우는 드묾.
+* [0-9].ts
+* [0-9].tsx
+* [0-9].json
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useStore } from "jotai";
 import type { TimelineEvent } from "@/features/dashboard/domain/model/timelineEvent";
 import { fetchEventTitles } from "@/features/history/infrastructure/historyTitleClient";
@@ -28,13 +28,17 @@ export function useLazyTitles({
   const pendingElementsRef = useRef<Map<number, HTMLDivElement>>(new Map());
   const cardRefCallbacks = useRef<Map<number, (el: HTMLDivElement | null) => void>>(new Map());
 
-  // Keep latest values accessible in stable callbacks
+  // Keep latest values accessible in stable callbacks.
+  // Ref 할당은 렌더 중 수행 금지 (React 19 엄격 모드) — commit 이후 useLayoutEffect
+  // 에서 동기 업데이트. 이후 첫 paint 전 observer/flush 콜백에 최신값이 보임.
   const eventsRef = useRef(events);
   const tickerRef = useRef(ticker);
   const periodRef = useRef(period);
-  eventsRef.current = events;
-  tickerRef.current = ticker;
-  periodRef.current = period;
+  useLayoutEffect(() => {
+    eventsRef.current = events;
+    tickerRef.current = ticker;
+    periodRef.current = period;
+  }, [events, ticker, period]);
 
   // Reset pending state on ticker/period change
   useEffect(() => {
