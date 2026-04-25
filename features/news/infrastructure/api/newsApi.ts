@@ -96,6 +96,24 @@ export async function saveInterestArticle(
   return data;
 }
 
+export interface WatchlistNewsFeedResult {
+  has_watchlist: boolean;
+  items: Array<{
+    title: string;
+    description?: string;
+    url: string;
+    published_at?: string;
+    stock_code: string;
+    stock_name: string;
+  }>;
+  total: number;
+}
+
+export async function getWatchlistNewsFeed(): Promise<WatchlistNewsFeedResult> {
+  const { data } = await httpClient<ApiResponse<WatchlistNewsFeedResult>>("/api/v1/news/watchlist-feed");
+  return data;
+}
+
 export interface NewsSearchResult {
   articles: NewsArticle[];
   page: number;

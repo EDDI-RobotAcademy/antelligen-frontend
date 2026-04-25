@@ -5,4 +5,5 @@ export interface NewsArticle {
   source: string;
   url: string;
   publishedAt: string;
+  stockName?: string;
 }

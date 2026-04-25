@@ -1,6 +1,5 @@
-import { Suspense } from "react";
-import YoutubeList from "@/features/youtube/ui/components/YoutubeList";
 import { youtubeListStyles as s } from "@/features/youtube/ui/components/youtubeListStyles";
+import YoutubeFeedList from "@/features/youtube/ui/components/YoutubeFeedList";
 
 export default function YoutubePage() {
   return (
@@ -10,9 +9,7 @@ export default function YoutubePage() {
           <h1 className={s.header.title}>주식 영상 피드</h1>
           <span className={s.header.badge}>YouTube</span>
         </div>
-        <Suspense fallback={<div className={s.loading}>데이터를 불러오는 중입니다...</div>}>
-          <YoutubeList />
-        </Suspense>
+        <YoutubeFeedList />
       </div>
     </div>
   );

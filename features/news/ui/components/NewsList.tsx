@@ -162,37 +162,55 @@ export default function NewsList() {
     );
   }
 
-  const { articles, totalPages } = newsState;
+  const { articles, totalPages, isWatchlistFeed } = newsState;
 
   if (articles.length === 0) {
     return (
       <div className={s.card}>
-        <p className={s.empty}>표시할 뉴스가 없습니다.</p>
+        <p className={s.empty}>
+          {isWatchlistFeed
+            ? "관심종목에 대한 뉴스가 아직 수집되지 않았습니다."
+            : "표시할 뉴스가 없습니다."}
+        </p>
       </div>
     );
   }
 
   return (
     <div className={s.card}>
+      {isWatchlistFeed && (
+        <p className="mb-4 text-xs text-zinc-400 dark:text-zinc-500">
+          관심종목 기반 뉴스 {articles.length}건
+        </p>
+      )}
       <ul className={s.list}>
         {articles.map((article) => (
           <li key={article.newsId} className={s.item.wrap}>
             <div className="flex items-start justify-between gap-4">
-              <a
-                href={article.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={s.item.title}
-              >
-                {article.title}
-              </a>
+              <div className="flex min-w-0 flex-col gap-1">
+                {article.stockName && (
+                  <span className="w-fit rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                    {article.stockName}
+                  </span>
+                )}
+                <a
+                  href={article.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={s.item.title}
+                >
+                  {article.title}
+                </a>
+              </div>
               <SaveButton
                 article={article}
                 initialSavedId={savedMap.get(article.url)}
               />
             </div>
             <div className={s.item.meta}>
-              <span className={s.item.source}>{article.source}</span>
+              {!article.stockName && (
+                <span className={s.item.source}>{article.source}</span>
+              )}
               {!isNaN(new Date(article.publishedAt).getTime()) && (
                 <span>{new Date(article.publishedAt).toLocaleDateString("ko-KR")}</span>
               )}

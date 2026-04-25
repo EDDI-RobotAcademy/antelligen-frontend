@@ -10,4 +10,5 @@ export type NewsState =
       page: number;
       totalPages: number;
       totalCount: number;
+      isWatchlistFeed: boolean;
     };

@@ -13,14 +13,14 @@ export function useSignup() {
   const submitting = useRef(false);
   const setAuth = useSetAtom(authAtom);
 
-  async function submit(nickname: string, email: string) {
+  async function submit(nickname: string, email: string, watchlist: string[] = []) {
     if (submitting.current) return;
     submitting.current = true;
     setIsLoading(true);
     setError(null);
 
     try {
-      await signupUser(nickname, email);
+      await signupUser(nickname, email, watchlist);
       setAuth({ status: "AUTHENTICATED", user: { id: "", email, nickname } });
       router.replace("/");
     } catch {

@@ -3,14 +3,42 @@
 import { useState } from "react";
 import { useSignupAccess } from "@/features/auth/application/hooks/useSignupAccess";
 import { useSignup } from "@/features/auth/application/hooks/useSignup";
+import { useStockThemes } from "@/features/auth/application/hooks/useStockThemes";
 import TextField from "@/ui/components/TextField";
+import WatchlistStep from "@/features/auth/ui/components/WatchlistStep";
+
+type Step = "profile" | "watchlist";
 
 export default function SignupContent() {
   const { nickname: initialNickname, email, isReady } = useSignupAccess();
   const [nickname, setNickname] = useState(initialNickname);
+  const [step, setStep] = useState<Step>("profile");
+  const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
   const { submit, isLoading, error } = useSignup();
+  const { themes, isLoading: themesLoading } = useStockThemes();
 
   if (!isReady) return null;
+
+  function toggleCode(code: string) {
+    setSelectedCodes((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    );
+  }
+
+  if (step === "watchlist") {
+    return (
+      <WatchlistStep
+        themes={themes}
+        isLoading={themesLoading}
+        selectedCodes={selectedCodes}
+        onToggle={toggleCode}
+        onSubmit={() => submit(nickname, email, selectedCodes)}
+        onSkip={() => submit(nickname, email, [])}
+        isSubmitting={isLoading}
+        error={error}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
@@ -35,15 +63,12 @@ export default function SignupContent() {
             disabled
           />
         </div>
-        {error && (
-          <p className="mt-3 text-center text-xs text-red-500 dark:text-red-400">{error}</p>
-        )}
         <button
-          disabled={!nickname.trim() || isLoading}
-          onClick={() => submit(nickname, email)}
+          disabled={!nickname.trim()}
+          onClick={() => setStep("watchlist")}
           className="mt-6 h-12 w-full rounded-xl bg-zinc-900 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
         >
-          {isLoading ? "처리 중..." : "회원가입"}
+          다음
         </button>
       </div>
     </div>
