@@ -103,8 +103,8 @@ export interface WatchlistNewsFeedResult {
     description?: string;
     url: string;
     published_at?: string;
-    stock_code: string;
-    stock_name: string;
+    stock_code?: string;
+    stock_name?: string;
   }>;
   total: number;
 }
