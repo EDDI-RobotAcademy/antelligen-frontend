@@ -18,15 +18,21 @@ import { nasdaqAtom } from "@/features/dashboard/application/atoms/nasdaqAtom";
 import { economicEventAtom, selectedEventAtom } from "@/features/dashboard/application/atoms/economicEventAtom";
 import { timelineAtom, selectedTimelineEventAtom } from "@/features/dashboard/application/atoms/timelineAtom";
 import { selectedBarTimeAtom } from "@/features/dashboard/application/atoms/selectedBarAtom";
+import { selectedAnomalyBarAtom } from "@/features/dashboard/application/atoms/selectedAnomalyBarAtom";
 import { periodAtom } from "@/features/dashboard/application/atoms/periodAtom";
 import { tickerAtom } from "@/features/dashboard/application/atoms/tickerAtom";
 import { companyNameAtom } from "@/features/dashboard/application/atoms/companyNameAtom";
 import { chartApiAtom, chartContainerAtom } from "@/features/dashboard/application/atoms/chartApiAtom";
+import { anomalyBarsAtom } from "@/features/dashboard/application/atoms/anomalyBarsAtom";
+import type { AnomalyBar } from "@/features/dashboard/infrastructure/api/anomalyBarsApi";
 import { useNasdaqChart } from "@/features/dashboard/application/hooks/useNasdaqChart";
+import { useAnomalyBars } from "@/features/dashboard/application/hooks/useAnomalyBars";
 import ChartSkeleton from "@/features/dashboard/ui/components/skeletons/ChartSkeleton";
 import PeriodTabs from "@/features/dashboard/ui/components/PeriodTabs";
 
 const MARKER_COLOR_SELECTED = "#a855f7";
+// 한국식: 상승 = 빨강, 하락 = 파랑 (ADR-0001 §4 결정)
+const ANOMALY_COLOR_STAR = "#EAB308";
 
 export default function NasdaqChart() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,9 +40,12 @@ export default function NasdaqChart() {
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
 
+  useAnomalyBars();
+
   const nasdaqState = useAtomValue(nasdaqAtom);
   const economicEventState = useAtomValue(economicEventAtom);
   const timelineState = useAtomValue(timelineAtom);
+  const anomalyBarsState = useAtomValue(anomalyBarsAtom);
   const selectedBarTime = useAtomValue(selectedBarTimeAtom);
   const period = useAtomValue(periodAtom);
   const ticker = useAtomValue(tickerAtom);
@@ -47,19 +56,22 @@ export default function NasdaqChart() {
   const setSelectedEvent = useSetAtom(selectedEventAtom);
   const setSelectedTimelineEvent = useSetAtom(selectedTimelineEventAtom);
   const setSelectedBarTime = useSetAtom(selectedBarTimeAtom);
+  const setSelectedAnomalyBar = useSetAtom(selectedAnomalyBarAtom);
 
   // period 변경 시 경제지표 선택 초기화 (history 선택은 유지)
   useEffect(() => {
     setSelectedBarTime(null);
     setSelectedEvent(null);
-  }, [period, setSelectedBarTime, setSelectedEvent]);
+    setSelectedAnomalyBar(null);
+  }, [period, setSelectedBarTime, setSelectedEvent, setSelectedAnomalyBar]);
 
   // ticker 변경 시 모든 선택 초기화
   useEffect(() => {
     setSelectedBarTime(null);
     setSelectedEvent(null);
     setSelectedTimelineEvent(null);
-  }, [ticker, setSelectedBarTime, setSelectedEvent, setSelectedTimelineEvent]);
+    setSelectedAnomalyBar(null);
+  }, [ticker, setSelectedBarTime, setSelectedEvent, setSelectedTimelineEvent, setSelectedAnomalyBar]);
 
   // 마커 클릭 핸들러 — 최신 상태를 참조하도록 ref로 관리
   const clickHandlerRef = useRef<(params: MouseEventParams<Time>) => void>(() => {});
@@ -69,11 +81,12 @@ export default function NasdaqChart() {
 
       const clickedTime = String(params.time);
 
-      // 같은 봉 재클릭 시 선택 해제
+      // 같은 봉 재클릭 시 선택 해제 (인과 팝업도 닫음)
       if (selectedBarTime === clickedTime) {
         setSelectedBarTime(null);
         setSelectedEvent(null);
         setSelectedTimelineEvent(null);
+        setSelectedAnomalyBar(null);
         return;
       }
 
@@ -87,6 +100,34 @@ export default function NasdaqChart() {
           return diff < nearestDiff ? bar : nearest;
         }).time;
       };
+
+      // 이상치 봉 매칭 — ★ 마커 클릭 시 causality 팝업 오픈
+      if (anomalyBarsState.status === "SUCCESS" && bars.length > 0) {
+        const matchedAnomaly = anomalyBarsState.events.find(
+          (ev) => toNearestBarTime(ev.date) === clickedTime
+        );
+        if (matchedAnomaly) {
+          const effectiveTicker = ticker ?? "IXIC";
+          setSelectedAnomalyBar({ ticker: effectiveTicker, bar: matchedAnomaly });
+          setSelectedBarTime(clickedTime);
+          // 같은 봉에 History 이벤트도 있으면 함께 매칭 (타임라인 스크롤용)
+          if (timelineState.status === "SUCCESS") {
+            const matchedIdx = timelineState.events.findIndex(
+              (e) => toNearestBarTime(e.date) === clickedTime
+            );
+            setSelectedTimelineEvent(
+              matchedIdx !== -1
+                ? { idx: matchedIdx, event: timelineState.events[matchedIdx] }
+                : null,
+            );
+          }
+          setSelectedEvent(null);
+          return;
+        }
+      }
+
+      // 이상치 봉이 아니면 팝업은 닫혀있어야 함
+      setSelectedAnomalyBar(null);
 
       // History 이벤트 매칭 (1D일 때)
       if (timelineState.status === "SUCCESS" && timelineState.events.length > 0) {
@@ -117,7 +158,7 @@ export default function NasdaqChart() {
         setSelectedEvent(null);
       }
     };
-  }, [selectedBarTime, economicEventState, timelineState, nasdaqState, setSelectedBarTime, setSelectedEvent, setSelectedTimelineEvent]);
+  }, [selectedBarTime, economicEventState, timelineState, anomalyBarsState, nasdaqState, ticker, setSelectedBarTime, setSelectedEvent, setSelectedTimelineEvent, setSelectedAnomalyBar]);
 
   // 차트 초기화 + 캔들스틱 데이터 바인딩
   useEffect(() => {
@@ -185,21 +226,60 @@ export default function NasdaqChart() {
     };
   }, [nasdaqState, setChartApi, setChartContainer]);
 
-  // 마커 바인딩 — 선택된 bar에만 마커 표시 (연봉 제외)
+  // 마커 바인딩 — 이상치 봉(★) + 선택된 봉(●) 병합
   useEffect(() => {
     if (!markersRef.current) return;
-    if (period === "1Y" || !selectedBarTime) {
-      markersRef.current.setMarkers([]);
-      return;
+
+    const markers: SeriesMarker<Time>[] = [];
+
+    // 1) 이상치 봉 마커 — 차트 봉 time과 anomaly date 정밀도가 다를 수 있어
+    //    가장 가까운 봉으로 스냅하고, 같은 봉에 여러 이벤트가 매핑되면 |return_pct| 최대만 표시.
+    const chartBars = nasdaqState.status === "SUCCESS" ? nasdaqState.bars : [];
+    if (anomalyBarsState.status === "SUCCESS" && chartBars.length > 0) {
+      const strongestByBar = new Map<string, AnomalyBar>();
+      for (const ev of anomalyBarsState.events) {
+        const evTs = new Date(ev.date).getTime();
+        let closestTime = chartBars[0].time;
+        let minDiff = Math.abs(new Date(closestTime).getTime() - evTs);
+        for (const bar of chartBars) {
+          const diff = Math.abs(new Date(bar.time).getTime() - evTs);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestTime = bar.time;
+          }
+        }
+        const existing = strongestByBar.get(closestTime);
+        if (!existing || Math.abs(ev.return_pct) > Math.abs(existing.return_pct)) {
+          strongestByBar.set(closestTime, ev);
+        }
+      }
+      for (const [barTime, ev] of strongestByBar) {
+        markers.push({
+          time: barTime as Time,
+          position: ev.direction === "up" ? "aboveBar" : "belowBar",
+          shape: "circle",
+          color: ANOMALY_COLOR_STAR,
+          size: 0,
+          text: "★",
+        });
+      }
     }
-    markersRef.current.setMarkers([{
-      time: selectedBarTime as Time,
-      position: "aboveBar" as const,
-      shape: "circle" as const,
-      color: MARKER_COLOR_SELECTED,
-      size: 1,
-    }]);
-  }, [selectedBarTime, period]);
+
+    // 2) 사용자가 선택한 봉 — 보라 원 하이라이트
+    if (selectedBarTime) {
+      markers.push({
+        time: selectedBarTime as Time,
+        position: "aboveBar",
+        shape: "circle",
+        color: MARKER_COLOR_SELECTED,
+        size: 1,
+      });
+    }
+
+    // lightweight-charts 는 time 오름차순으로 정렬된 markers 를 요구
+    markers.sort((a, b) => String(a.time).localeCompare(String(b.time)));
+    markersRef.current.setMarkers(markers);
+  }, [anomalyBarsState, nasdaqState, selectedBarTime]);
 
   // 패널 선택 시 해당 bar로 차트 스크롤 — bar 인덱스 기준으로 가운데 정렬
   useEffect(() => {

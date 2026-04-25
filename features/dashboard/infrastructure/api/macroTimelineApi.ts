@@ -3,30 +3,40 @@ import { env } from "@/infrastructure/config/env";
 import type { ApiResponse } from "@/infrastructure/http/apiResponse";
 import type { TimelineResponse } from "@/features/dashboard/domain/model/timelineEvent";
 import type { TimelineProgress } from "@/features/dashboard/domain/state/timelineState";
-import type { Period } from "@/features/dashboard/domain/model/period";
 
-export async function fetchTimeline(
-  ticker: string,
-  period: Period,
+export type MacroRegion = "US" | "KR" | "GLOBAL";
+export type MacroPeriod = "1M" | "3M" | "6M" | "1Y" | "2Y" | "5Y" | "10Y";
+
+export async function fetchMacroTimeline(
+  region: MacroRegion,
+  period: MacroPeriod,
+  limit?: number,
   signal?: AbortSignal,
 ): Promise<TimelineResponse> {
-  // §18.2: enrich_titles 파라미터 생략 — backend default(True)로 항상 LLM 타이틀.
+  const params = new URLSearchParams({ region, period });
+  if (limit !== undefined) params.set("limit", String(limit));
   const res = await httpClient<ApiResponse<TimelineResponse>>(
-    `/api/v1/history-agent/timeline?ticker=${encodeURIComponent(ticker)}&period=${period}`,
-    { signal }
+    `/api/v1/history-agent/macro-timeline?${params.toString()}`,
+    { signal },
   );
   return res.data;
 }
 
-export function streamTimeline(
-  ticker: string,
-  period: Period,
+/**
+ * 장기 period(5Y/10Y)는 SSE로 진행 상황을 받아 첫 로드 타임아웃을 회피한다.
+ * 서버가 Redis 캐시 hit일 때는 progress 없이 즉시 done을 보낸다.
+ */
+export function streamMacroTimeline(
+  region: MacroRegion,
+  period: MacroPeriod,
   onProgress: (progress: TimelineProgress) => void,
+  limit?: number,
   signal?: AbortSignal,
 ): Promise<TimelineResponse> {
   return new Promise((resolve, reject) => {
-    // §18.2: enrich_titles 생략 — backend default(True).
-    const url = `${env.apiBaseUrl}/api/v1/history-agent/timeline/stream?ticker=${encodeURIComponent(ticker)}&period=${period}`;
+    const params = new URLSearchParams({ region, period });
+    if (limit !== undefined) params.set("limit", String(limit));
+    const url = `${env.apiBaseUrl}/api/v1/history-agent/macro-timeline/stream?${params.toString()}`;
 
     fetch(url, {
       credentials: "include",

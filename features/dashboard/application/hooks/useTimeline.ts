@@ -1,23 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { tickerAtom } from "@/features/dashboard/application/atoms/tickerAtom";
 import { periodAtom } from "@/features/dashboard/application/atoms/periodAtom";
 import { timelineAtom } from "@/features/dashboard/application/atoms/timelineAtom";
 import { streamTimeline } from "@/features/dashboard/infrastructure/api/timelineApi";
-import { enrichTitlesAtom } from "@/features/history/application/historyAtoms";
 
 export function useTimeline() {
   const ticker = useAtomValue(tickerAtom);
   const period = useAtomValue(periodAtom);
-  const periodRef = useRef(period);
   const setTimeline = useSetAtom(timelineAtom);
-  const enrichTitles = useAtomValue(enrichTitlesAtom);
-
-  useEffect(() => {
-    periodRef.current = period;
-  }, [period]);
 
   useEffect(() => {
     const effectiveTicker = ticker ?? "IXIC";
@@ -29,12 +22,11 @@ export function useTimeline() {
 
     streamTimeline(
       effectiveTicker,
-      periodRef.current,
+      period,
       (progress) => {
         setTimeline({ status: "LOADING_WITH_PROGRESS", progress });
       },
       controller.signal,
-      enrichTitles,
     )
       .then((data) => {
         if (data.is_etf) {
@@ -64,5 +56,5 @@ export function useTimeline() {
       controller.abort();
       clearTimeout(timeoutId);
     };
-  }, [ticker, enrichTitles, setTimeline]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ticker, period, setTimeline]);
 }
