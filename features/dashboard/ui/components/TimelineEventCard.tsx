@@ -36,6 +36,7 @@ const ANNOUNCEMENT_TYPE_LABEL: Record<string, string> = {
   DEBT_ISSUANCE: "회사채 발행",
   SHAREHOLDER_MEETING: "주주총회",
   REGULATION_FD: "공정공시",
+  ARTICLES_AMENDMENT: "정관 개정",  // 8-K Item 5.03 정관·부속법 개정
 };
 
 interface Props {

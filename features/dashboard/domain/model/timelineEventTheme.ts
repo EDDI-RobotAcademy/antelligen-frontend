@@ -107,6 +107,14 @@ const COLOR_NEUTRAL: TimelineColorTokens = {
   chipText: "text-neutral-600 dark:text-neutral-300",
 };
 
+// ARTICLES_AMENDMENT (정관 개정, 8-K Item 5.03) — 지배구조 변경 시그널을 위한 차별화 색.
+const COLOR_FUCHSIA: TimelineColorTokens = {
+  dot: "bg-fuchsia-600 dark:bg-fuchsia-500",
+  borderLeft: "border-l-fuchsia-600 dark:border-l-fuchsia-500",
+  chipBg: "bg-fuchsia-600/10 dark:bg-fuchsia-500/10",
+  chipText: "text-fuchsia-700 dark:text-fuchsia-300",
+};
+
 /** type → 색상 토큰. 매핑이 없는 type은 category fallback에서 처리한다. */
 const TYPE_COLOR: Record<string, TimelineColorTokens> = {
   // ANNOUNCEMENT 8종 (v1)
@@ -129,6 +137,8 @@ const TYPE_COLOR: Record<string, TimelineColorTokens> = {
   BUYBACK: COLOR_SLATE,
   BUYBACK_CANCEL: COLOR_SLATE,
   DISCLOSURE: COLOR_SLATE,
+  // ANNOUNCEMENT v2 — 정관·부속법 개정 (8-K Item 5.03). 지배구조 변경 시그널.
+  ARTICLES_AMENDMENT: COLOR_FUCHSIA,
 };
 
 /** category fallback — type이 매핑 테이블에 없을 때만 사용. */
@@ -180,7 +190,8 @@ const FORCE_MEDIUM_TYPES = new Set([
   "MANAGEMENT_CHANGE",
   "RIGHTS_OFFERING",
   "PRODUCT_LAUNCH",
-  "EARNINGS_RELEASE",  // v2: 정기 실적은 시그널 있음
+  "EARNINGS_RELEASE",     // v2: 정기 실적은 시그널 있음
+  "ARTICLES_AMENDMENT",   // 정관 개정 — 지배구조 변경 신호
 ]);
 
 // v1 (0~1) 임계값
