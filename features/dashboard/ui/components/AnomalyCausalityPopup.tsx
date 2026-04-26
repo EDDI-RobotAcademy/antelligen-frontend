@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAtom, useAtomValue } from "jotai";
 import { selectedAnomalyBarAtom } from "@/features/dashboard/application/atoms/selectedAnomalyBarAtom";
 import { anomalyCausalityAtom } from "@/features/dashboard/application/atoms/anomalyCausalityAtom";
@@ -9,6 +9,7 @@ import type {
   HypothesisConfidence,
   HypothesisLayer,
   HypothesisResult,
+  HypothesisSource,
 } from "@/features/dashboard/domain/model/timelineEvent";
 
 const CONFIDENCE_LABEL: Record<HypothesisConfidence, string> = {
@@ -37,10 +38,31 @@ function getLayer(h: HypothesisResult): HypothesisLayer {
   return h.layer ?? "SUPPORTING";
 }
 
+/** 모든 hypothesis 의 sources 를 (label,url) 기준 dedupe 한다. KR4 "관련 뉴스" 펼침 섹션. */
+function dedupeSources(hypotheses: HypothesisResult[]): HypothesisSource[] {
+  const seen = new Set<string>();
+  const out: HypothesisSource[] = [];
+  for (const h of hypotheses) {
+    for (const s of h.sources ?? []) {
+      const key = `${s.label}|${s.url ?? ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(s);
+    }
+  }
+  return out;
+}
+
 export default function AnomalyCausalityPopup() {
   const [selected, setSelected] = useAtom(selectedAnomalyBarAtom);
   const state = useAtomValue(anomalyCausalityAtom);
+  const [expanded, setExpanded] = useState(false);
   useAnomalyCausality();
+
+  const dedupedSources = useMemo(
+    () => (state.status === "SUCCESS" ? dedupeSources(state.hypotheses) : []),
+    [state],
+  );
 
   useEffect(() => {
     if (!selected) return;
@@ -252,12 +274,88 @@ export default function AnomalyCausalityPopup() {
               })}
             </ul>
           )}
+
+          {/* KR4 펼치기 토글 + 추가 섹션 (관련 출처/카테고리). 후속 PR 에서 이후 전개·유사 사건 추가 예정 */}
+          {state.status === "SUCCESS" && state.hypotheses.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-3 flex items-center gap-1 text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                aria-expanded={expanded}
+              >
+                <span>{expanded ? "▴ 접기" : "▾ 더보기"}</span>
+                <span className="text-zinc-400">관련 출처 · 카테고리</span>
+              </button>
+
+              {expanded && (
+                <div className="mt-3 space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs dark:border-zinc-700 dark:bg-zinc-800/40">
+                  <div>
+                    <div className="mb-1 font-semibold text-zinc-700 dark:text-zinc-200">
+                      관련 출처
+                    </div>
+                    {dedupedSources.length === 0 ? (
+                      <p className="text-zinc-500 dark:text-zinc-400">
+                        가설에 출처가 첨부되지 않았습니다.
+                      </p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {dedupedSources.map((s, i) => (
+                          <li key={`${s.label}-${i}`}>
+                            {s.url ? (
+                              <a
+                                href={s.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline dark:text-blue-400"
+                              >
+                                {s.label} ↗
+                              </a>
+                            ) : (
+                              <span className="text-zinc-600 dark:text-zinc-300">
+                                {s.label}
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="mb-1 font-semibold text-zinc-700 dark:text-zinc-200">
+                      카테고리
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="rounded-full bg-yellow-500/10 px-2 py-0.5 text-[10px] text-yellow-700 dark:text-yellow-400">
+                        ★ 이상치 봉
+                      </span>
+                      <span className="rounded-full bg-zinc-200/60 px-2 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300">
+                        PRICE
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                    이후 전개(+1d/+5d/+20d) · 수급 정보 · 유사 과거 사건은 후속 PR에서 추가 예정.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
-        {/* Footer — 고정, cached 뱃지 */}
+        {/* Footer — KR5 한계 인정 + cached 상태 */}
         {state.status === "SUCCESS" && (
-          <div className="border-t border-zinc-200 px-6 py-2 text-right text-[10px] text-zinc-400 dark:border-zinc-800">
-            {state.cached ? "캐시 히트" : "신규 생성"}
+          <div className="border-t border-zinc-200 px-6 py-2 text-[10px] dark:border-zinc-800">
+            <div className="flex items-center justify-between gap-2 text-zinc-500 dark:text-zinc-400">
+              <span>
+                ⚠ 본 분석은 LLM 추정이며 투자 추천이 아닙니다. 신뢰도 ‘하’는 회색으로 표시됩니다.
+              </span>
+              <span className="shrink-0 text-zinc-400">
+                {state.cached ? "캐시 히트" : "신규 생성"}
+              </span>
+            </div>
           </div>
         )}
       </div>
