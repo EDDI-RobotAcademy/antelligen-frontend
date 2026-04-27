@@ -587,16 +587,24 @@ Domain Isolation
 
 ## Git 워크플로우
 
-코드 변경 시 main에 직접 푸시하지 말고 항상 PR 워크플로우를 사용한다.
+main에 직접 푸시 금지. 항상 PR 워크플로우 사용.
 
-1. `passgiant` fork에 작업 브랜치 생성
-2. 코드 변경 + 브랜치에 푸시
-3. `passgiant/branch` → `EDDI-RobotAcademy/main` 으로 PR 생성
-4. PR 승인 (APPROVE)
-5. 머지
+1. fork (예: `passgiant/antelligen-frontend`)에 작업 브랜치 생성 후 푸시
+2. `origin/branch` → `EDDI-RobotAcademy/main` PR 생성
+3. **merge commit**으로 머지 (squash 금지 — 원본 커밋 SHA 보존)
+4. 머지 후 반드시 fork sync 실행:
+   ```bash
+   git fetch upstream && git merge --ff-only upstream/main && git push origin main
+   ```
+5. 머지된 작업 브랜치는 로컬/원격(origin) 양쪽에서 삭제:
+   ```bash
+   git branch -d <branch>
+   git push origin --delete <branch>
+   ```
 
-- origin: `passgiant/antelligen-*` (fork)
-- upstream: `EDDI-RobotAcademy/antelligen-*` (원본)
+- origin: 사용자 fork (예: `passgiant/antelligen-frontend`)
+- upstream: `EDDI-RobotAcademy/antelligen-frontend` (원본)
+- 같은 브랜치를 여러 작업에 재사용하지 않는다 — 새 작업은 새 브랜치
 
 ---
 
