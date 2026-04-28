@@ -195,13 +195,19 @@ export default function NasdaqChart() {
       wickDownColor: "#3b82f6",
     });
 
-    const data: CandlestickData<Time>[] = nasdaqState.bars.map((bar) => ({
-      time: bar.time as Time,
-      open: bar.open,
-      high: bar.high,
-      low: bar.low,
-      close: bar.close,
-    }));
+    // 일부 한국 종목(005930.KS 등) 에서 yfinance 가 휴장일/누락 봉을 null OHLC 로 반환 →
+    // lightweight-charts 가 candlestick value 를 number 로 강제하므로 사전 필터.
+    const data: CandlestickData<Time>[] = nasdaqState.bars
+      .filter((bar) =>
+        bar.open != null && bar.high != null && bar.low != null && bar.close != null
+      )
+      .map((bar) => ({
+        time: bar.time as Time,
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+      }));
 
     series.setData(data);
     chart.timeScale().fitContent();
@@ -249,9 +255,11 @@ export default function NasdaqChart() {
         const evType = ev.type ?? "zscore";
         if (!markerVisibility[evType]) continue;
         if (evType === "zscore" && visibleBarCount != null) {
+          // KR1 종목 군별 floor (KOSPI 5/KOSDAQ 7/US 5) 와 동일 threshold 면 줌 필터 효과 0.
+          // floor 보다 높게 잡아 줌 아웃 시 backend 데이터를 frontend 가 추가로 거름.
           const absReturn = Math.abs(ev.return_pct);
-          if (visibleBarCount > 500 && absReturn < 7) continue;
-          else if (visibleBarCount > 200 && absReturn < 5) continue;
+          if (visibleBarCount > 500 && absReturn < 10) continue;
+          else if (visibleBarCount > 200 && absReturn < 7) continue;
         }
         const evTs = new Date(ev.date).getTime();
         let closestTime = chartBars[0].time;
@@ -338,11 +346,15 @@ export default function NasdaqChart() {
         </div>
         <ChartIntervalTabs selected={chartInterval} onChange={setChartInterval} />
       </div>
-      {/* KR7 — 마커 토글 + floor 임계값 슬라이더. localStorage 영속화. */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <MarkerToggleChips />
-        <FloorPctSlider />
-      </div>
+      {/* KR7 — 마커 토글 + floor 임계값 슬라이더. localStorage 영속화.
+          누적/Drawdown/Cluster 5종 마커가 backend 1D 전용이라 1W/1M/1Q 에선 ★ 만 동작 →
+          혼란 방지로 컨트롤 row 전체를 1D 에서만 노출. */}
+      {chartInterval === "1D" && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <MarkerToggleChips />
+          <FloorPctSlider />
+        </div>
+      )}
       <div ref={containerRef} className="w-full" />
     </div>
   );
